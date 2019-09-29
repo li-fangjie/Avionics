@@ -221,9 +221,9 @@ void loop() {
   
   char Vent_Command = command[0]; //Check vent valve desired state
   switch (Vent_Command) { //set desired vent valve state
-    case 'V':
+    case 'O':
       open_vent();
-    case 'X':
+    case 'C':
       close_vent();
   }
   

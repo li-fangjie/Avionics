@@ -21,6 +21,9 @@ String trimKey;
 //variable to store list of desired states
 String Command;
 
+//variable to hold last ball valve command on button to prevent repetitive signal sending? -> only "switch" commands processed
+bool prev_bv_command;
+
 void setup() {
   //begin RF communiation
   LoRa.begin(915E6);
@@ -35,8 +38,10 @@ void setup() {
 
 void ventCom(){
   if (digitalRead(ventSwitch) == LOW){
-    CommandV = "V"; //indicate venting command was sent
+    CommandV = "C"; //indicate venting command was sent
   } 
+  else{
+    CommandV = "O";
 }
 
 void fuelCom() {

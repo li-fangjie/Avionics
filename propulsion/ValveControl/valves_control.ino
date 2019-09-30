@@ -41,18 +41,18 @@ const int VALVE_MOVING_INDICATOR_PIN = 7;
 const int VALVE_STATE_INDICATOR_PIN = 8;
 const int ematch_pin = 9;
 // States for the above pins
-bool Valve_moving = LOW;  // If HIGH -> valve is moving; LOW -> not moving
-bool Valve_state = LOW;   // HIGH -> open; LOW -> closed 
+bool Valve_moving = true;  // If HIGH -> valve is moving; LOW -> not moving
+bool Valve_state = false;   // HIGH -> open; LOW -> closed 
 
 bool RECVD_IG_CMD = 0;
+const burn_duration = 6500; // The duration for the ignition burn
+long burn_time = 0;
 
 //Signal pins to relays for solenoid valves
 const int fuelRelay = 4;
 const int ventRelay = 5;
 const int dcRelay = 6;
 const int resetRelay = 7;
-
-
 
 void turn_motor_off () {
   digitalWrite(Active_Relay_Pin, LOW);
@@ -63,7 +63,7 @@ void turn_motor_off () {
 
 void turn_motor_on_forward () {
   // If the motor is on, turn it off first.
-  if (!Active_Relay_Pin) {
+  if (Active_Relay_Pin) {
     turn_motor_off();
   }
   digitalWrite(MOTOR_FORWARD_RELAY_PIN, HIGH);
@@ -75,7 +75,7 @@ void turn_motor_on_forward () {
 
 void turn_motor_on_reverse () {
   // If the motor is on, turn it off first.
-  if (!Active_Relay_Pin) {
+  if (Active_Relay_Pin) {
     turn_motor_off();
   }
   digitalWrite(MOTOR_REVERSE_RELAY_PIN, HIGH);
@@ -108,7 +108,7 @@ void increment_channel_b () {
 }
 
 bool ematch_continuity() { 
-  return !digitalRead(ematch_pin); 
+  return digitalRead(ematch_pin); 
 }
 
 /*
@@ -124,7 +124,7 @@ void check_rotation_and_stop_if_needed () {
     turn_motor_off();
     reset_pulse_count();
     if (Active_Relay_Pin == MOTOR_REVERSE_RELAY_PIN) { 
-      
+      // TODO What is the purpose of the incomplete control flow?
     }
   }
 }
@@ -156,6 +156,10 @@ void close_all() { //close all valves
   Serial.println("ALL VALVES CLOSED");
 }
 
+void ignition() {
+  turn_motor_on_forward();
+}
+
 void setup() {
   /* Initialize radio communication protocol */
   LoRa.begin(915E6);
@@ -179,6 +183,27 @@ void setup() {
   digitalWrite(ventRelay,LOW);
   digitalWrite(dcRelay,LOW);
   digitalWrite(resetRelay,LOW);
+  
+  //setup timer2 interrupt for ignition procedure. 1kHz -> 64 prescalar + 249 compare interrupt
+  TCCR2A = 0;
+  TCCR2B = 0;
+  TCNT = 0;
+  OCR2A = 249;
+  
+  TCCR2A |= (1 << WGM21);
+  TCCR2B |= (1 << CS22);
+  TIMSK2 |= (1 << OCIE2A);
+  
+  sei();
+}
+
+ISR(TIMER2_COMPA_vect){
+  if (RECVD_IG_CMD && ematch_continuity()){
+    burn_time += 1;
+    if (burn_time >= burn_duration){
+      RECVD_IG_CMD = 0;
+      turn_motor_forward();
+  }
 }
 
 void loop() {
@@ -192,7 +217,7 @@ void loop() {
     Serial.println(command);
   }
   
-  if (RECVD_IG_CMD == 1 && !ematch_continuity()) { 
+  if (RECVD_IG_CMD == 1 && ematch_continuity()) { 
     // digitalWrite(IGPIN,HIGH);
     delay(2650);
     turn_motor_on_forward();

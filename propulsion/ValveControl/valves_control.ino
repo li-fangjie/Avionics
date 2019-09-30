@@ -202,7 +202,7 @@ ISR(TIMER2_COMPA_vect){
     burn_time += 1;
     if (burn_time >= burn_duration){
       RECVD_IG_CMD = 0;
-      turn_motor_forward();
+      turn_motor_on_reverse();
   }
 }
 
@@ -217,14 +217,6 @@ void loop() {
     Serial.println(command);
   }
   
-  if (RECVD_IG_CMD == 1 && ematch_continuity()) { 
-    // digitalWrite(IGPIN,HIGH);
-    delay(2650);
-    turn_motor_on_forward();
-    delay(6500); //delay for however long we want the motor to burn for, 6.5 seconds being the most recent specified time
-    turn_motor_on_reverse();
-  }
-  
   char BV_Command = command[2]; //check ball valve desired state
   switch (BV_Command) { //set desired ball valve state
   case 'F': 
@@ -237,6 +229,7 @@ void loop() {
     break;
   case 'I': 
     Serial.println("RECVD IGNITION CMD...");
+    turn_motor_on_forward();
     RECVD_IG_CMD = 1;
     break;
   case 'X':

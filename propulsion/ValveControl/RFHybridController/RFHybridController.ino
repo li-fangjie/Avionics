@@ -25,6 +25,7 @@ String Command;
 
 //variable to hold last ball valve command on button to prevent repetitive signal sending? -> only "switch" commands processed
 bool prevBVCommand = false;
+bool prevIgnitionCommand = false;
 
 void setup() {
   //begin RF communiation
@@ -73,9 +74,10 @@ void BV() {
 }
 
 void ignitionCom() {
-  if (digitalRead(ignitionLock) == HIGH and digitalRead(ignitionSwitch) == HIGH){ 
+  if (digitalRead(ignitionLock) == HIGH and digitalRead(ignitionSwitch) == HIGH and prevIgnitionCommand != true){ 
     //only execute ignition function if key switch is turned to ON position
     BValve = "I"; //indicate ignition variable was sent
+    prevIgnitionCommand = false;
   }
 }
 

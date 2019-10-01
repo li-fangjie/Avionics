@@ -130,12 +130,12 @@ void check_rotation_and_stop_if_needed () {
 }
 
 void open_vent() { //open venting solenoid
-  digitalWrite(ventRelay,HIGH);
+  digitalWrite(ventRelay,LOW);
   Serial.println("VENTING");
 }
 
 void stop_vent() { // close venting solenoid
-  digitalWrite(ventRelay,LOW);
+  digitalWrite(ventRelay,HIGH);
   Serial.println("NOT VENTING");
 }
 
@@ -144,7 +144,7 @@ void open_fuel() { //open fueling valve
   Serial.println("FUELING VALVE OPEN");
 }
 
-void top_fuel() { //close fueling valve
+void close_fuel() { //close fueling valve
   digitalWrite(fuelRelay,LOW);
   Serial.println("FUELING VALVE CLOSED");
 }

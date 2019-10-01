@@ -23,9 +23,12 @@ String trimKey;
 //variable to store list of desired states
 String Command;
 
-//variable to hold last ball valve command on button to prevent repetitive signal sending? -> only "switch" commands processed
+//variable to save last valve command on button to prevent repetitive signal sending? -> only "switch" commands processed
 bool prevBVCommand = false;
 bool prevIgnitionCommand = false;
+bool prevfuelCommand = true;
+bool prevVentCommand = true;
+bool newCommand = true; 
 
 void setup() {
   //begin RF communiation
@@ -40,18 +43,27 @@ void setup() {
 }
 
 void ventCom(){
-  if (digitalRead(ventSwitch) == LOW){
+  if (digitalRead(ventSwitch) == LOW and prevVentCommand == true){
     CommandV = "C"; //indicate venting command was sent
+    prevVentCommand = false;
+    newCommand = true;
   } 
-  else{
+  else if(digitalRead(ventSwitch) == HIGH and prevVentCommand == false){
     CommandV = "O";
+    prevVentCommand = false;
+    newCommand = true;
+  }
 }
 
 void fuelCom() {
-  if (digitalRead(fuelSwitch) == LOW){
+  if (digitalRead(fuelSwitch) == LOW and prevFuelCommand == true){
     CommandF = "C"; //indicate fueling variable was sent
-  }else if (digitalRead(fuelSwitch) == HIGH){
+    prevFuelCommand = false;
+    newCommand = true;
+  }else if (digitalRead(fuelSwitch) == HIGH and prevFuelCommand == true){
     CommandF = "O"; //indicate stop fueling varaible was sent
+    prevFuelCommand = true;
+    newCommand = true;
   }
 }
 
@@ -60,16 +72,20 @@ void BV() {
     trimKey = Serial.read();
     if (trimKey == "F" or trimKey == "R"){
       BValve = trimKey; //indicate ball valve was driven in the direction determined by the 
+      newCommand = true;
     }
   }
   if (ignitionLock != HIGH) {
     if (digitalRead(BVSwitch) == HIGH and prevBVCommand == false){
       BValve = "F";
       prevBVCommand = true;
+      newCommand = true;
     }
     else if(digitalRead(BVSwitch) == LOW and prevBVCCommand == true){
       BValve = "R";
       prevBVCommand = false;
+      newCommand = true;
+    }
   }
 }
 
@@ -78,6 +94,7 @@ void ignitionCom() {
     //only execute ignition function if key switch is turned to ON position
     BValve = "I"; //indicate ignition variable was sent
     prevIgnitionCommand = false;
+    newCommand = true;
   }
 }
 
@@ -97,7 +114,9 @@ void loop() {
   getCom(); //detect desired states
   Command = CommandV + CommandF + BValve; //compile data packet to send to solenoid actuator
   Serial.println(Command); //DEBUG: display what you sent as the command
-  LoRa.beginPacket(); //start transmission
-  LoRa.print(Command); //just gonna send it, asuhh dudes
-  LoRa.endPacket(); //end transmission
+  if(newCommand){
+    LoRa.beginPacket(); //start transmission
+    LoRa.print(Command); //just gonna send it, asuhh dudes
+    LoRa.endPacket(); //end transmission
+  }
 }

@@ -1,7 +1,9 @@
 /* 
- *  Ball valve control code.  Reads Hall effect detector
+ *  Control code for ball valve and solenoid valves.  
+ *  Reads Hall effect detector
  *  built into the AndyMark RS-775 motor to measure rotation.
  *  
+ *  The ball valve section of the code is:
  *  Code adapted and pilfered from Jeffrey La Favre:
  *    http://www.lafavre.us/robotics/encoder_code.pdf
  *  An explanation of Hall effect encoders, also 
@@ -45,7 +47,7 @@ bool Valve_moving = true;  // If HIGH -> valve is moving; LOW -> not moving
 bool Valve_state = false;   // HIGH -> open; LOW -> closed 
 
 bool RECVD_IG_CMD = 0;
-const burn_duration = 6500; // The duration for the ignition burn
+const int burn_duration = 6500; // The duration for the ignition burn
 long burn_time = 0;
 
 //Signal pins to relays for solenoid valves
@@ -134,7 +136,7 @@ void open_vent() { //open venting solenoid
   Serial.println("VENTING");
 }
 
-void stop_vent() { // close venting solenoid
+void close_vent() { // close venting solenoid
   digitalWrite(ventRelay,HIGH);
   Serial.println("NOT VENTING");
 }
@@ -185,9 +187,10 @@ void setup() {
   digitalWrite(resetRelay,LOW);
   
   //setup timer2 interrupt for ignition procedure. 1kHz -> 64 prescalar + 249 compare interrupt
+  // The control of the rocket will be disabled during ignition if delay() is used, which is blocking.
   TCCR2A = 0;
   TCCR2B = 0;
-  TCNT = 0;
+  TCNT2 = 0;
   OCR2A = 249;
   
   TCCR2A |= (1 << WGM21);
@@ -203,53 +206,60 @@ ISR(TIMER2_COMPA_vect){
     if (burn_time >= burn_duration){
       RECVD_IG_CMD = 0;
       turn_motor_on_reverse();
+    }
   }
 }
 
 void loop() {
   // Put code in to activate relays upon request.
-  String command;
+  int8_t command[3];
   int packetSize = LoRa.parsePacket();
   if (packetSize) {
+    int8_t i = 0;
     while (LoRa.available()) { //get full RF command
-      command += LoRa.read();
+      command[i] = LoRa.read();
+      i = (i+1) % 3; // just to ensure that the index is always less than 3. 
+      //In case under mysterious reasons, 1 packet contains multiple data.
     }
-    Serial.println(command);
+    // Serial.println(command);
+    for(int i=0; i<3; i++){ //DEBUG
+      Serial.print(command[i]);
+    }
   }
   
-  char BV_Command = command[2]; //check ball valve desired state
+  int8_t BV_Command = command[2]; //check ball valve desired state
   switch (BV_Command) { //set desired ball valve state
-  case 'F': 
+  case 1: 
     Serial.println("FORWARD");
     turn_motor_on_forward();
     break;
-  case 'R':
+  case 0:
     Serial.println("REVERSE");
     turn_motor_on_reverse();
     break;
-  case 'I': 
+  case 127: 
     Serial.println("RECVD IGNITION CMD...");
     turn_motor_on_forward();
     RECVD_IG_CMD = 1;
     break;
-  case 'X':
+  case -1:
     Serial.println("HOLDING");
     break;
   }
   
-  char Vent_Command = command[0]; //Check vent valve desired state
+  int8_t Vent_Command = command[0]; //Check vent valve desired state
   switch (Vent_Command) { //set desired vent valve state
-    case 'O':
+    case 1:
       open_vent();
-    case 'C':
+    case 0:
       close_vent();
   }
   
-  char Fuel_Command = command[1]; //Check fuel valve desired state
+  int8_t Fuel_Command = command[1]; //Check fuel valve desired state
   switch (Fuel_Command) { //set desired fuel valve
-    case 'O':
+    case 1:
       open_fuel();
-    case 'C':
+    case 0:
       close_fuel();
   }
 }

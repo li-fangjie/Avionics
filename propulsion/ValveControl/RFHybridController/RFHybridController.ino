@@ -10,23 +10,23 @@ const int ignitionLock = 8;
 const int ignitionSwitch = 9;
 int tOpen = 0;
 
-const int BVSwitch = 10
+const int BVSwitch = 10;
 
 //set variables for the condition of each switch
 //this corresponds to the desired state of the analogous solenoid
-String CommandV;
-String CommandD;
-String CommandF;
-String BValve;
-String trimKey;
+int8_t CommandV;
+int8_t CommandD;
+int8_t CommandF;
+int8_t BValve;
+int8_t trimKey;
 
 //variable to store list of desired states
-String Command;
+int8_t Command[3];
 
 //variable to save last valve command on button to prevent repetitive signal sending? -> only "switch" commands processed
 bool prevBVCommand = false;
 bool prevIgnitionCommand = false;
-bool prevfuelCommand = true;
+bool prevFuelCommand = true;
 bool prevVentCommand = true;
 bool newCommand = true; 
 
@@ -44,12 +44,12 @@ void setup() {
 
 void ventCom(){
   if (digitalRead(ventSwitch) == LOW and prevVentCommand == true){
-    CommandV = "C"; //indicate venting command was sent
+    CommandV = 1; //indicate venting command was sent
     prevVentCommand = false;
     newCommand = true;
   } 
   else if(digitalRead(ventSwitch) == HIGH and prevVentCommand == false){
-    CommandV = "O";
+    CommandV = 0;
     prevVentCommand = false;
     newCommand = true;
   }
@@ -57,11 +57,11 @@ void ventCom(){
 
 void fuelCom() {
   if (digitalRead(fuelSwitch) == LOW and prevFuelCommand == true){
-    CommandF = "C"; //indicate fueling variable was sent
+    CommandF = 1; //indicate fueling variable was sent
     prevFuelCommand = false;
     newCommand = true;
   }else if (digitalRead(fuelSwitch) == HIGH and prevFuelCommand == true){
-    CommandF = "O"; //indicate stop fueling varaible was sent
+    CommandF = 0; //indicate stop fueling varaible was sent
     prevFuelCommand = true;
     newCommand = true;
   }
@@ -70,19 +70,19 @@ void fuelCom() {
 void BV() {
   if (Serial.available()) { // The testing of valve via serial input, which can happen EVEN IF IGNITION LOCK IS LOW
     trimKey = Serial.read();
-    if (trimKey == "F" or trimKey == "R"){
+    if (trimKey == 1 or trimKey == 0){
       BValve = trimKey; //indicate ball valve was driven in the direction determined by the 
       newCommand = true;
     }
   }
-  if (ignitionLock != HIGH) {
+  if (ignitionLock != HIGH) { // Control of bValve through button is only possible when ignition lock is UNLOCKED
     if (digitalRead(BVSwitch) == HIGH and prevBVCommand == false){
-      BValve = "F";
+      BValve = 1;
       prevBVCommand = true;
       newCommand = true;
     }
-    else if(digitalRead(BVSwitch) == LOW and prevBVCCommand == true){
-      BValve = "R";
+    else if(digitalRead(BVSwitch) == LOW and prevBVCommand == true){
+      BValve = 0;
       prevBVCommand = false;
       newCommand = true;
     }
@@ -92,7 +92,7 @@ void BV() {
 void ignitionCom() {
   if (digitalRead(ignitionLock) == HIGH and digitalRead(ignitionSwitch) == HIGH and prevIgnitionCommand != true){ 
     //only execute ignition function if key switch is turned to ON position
-    BValve = "I"; //indicate ignition variable was sent
+    BValve = 127; //indicate ignition variable was sent
     prevIgnitionCommand = false;
     newCommand = true;
   }
@@ -106,17 +106,22 @@ void getCom() { //check states, send commands to open/close valves to rocket
 }
 
 void loop() {
-  CommandV = "X"; //set states to default holding state variables
-  CommandF = "X";
-  BValve = "X";
-  trimKey = "X";
+  CommandV = -1; //set states to default holding state variables
+  CommandF = -1;
+  BValve = -1;
+  trimKey = -1;
 
   getCom(); //detect desired states
-  Command = CommandV + CommandF + BValve; //compile data packet to send to solenoid actuator
-  Serial.println(Command); //DEBUG: display what you sent as the command
+  int8_t Command[3] = {CommandV, CommandF, BValve}; //compile data packet to send to solenoid actuator
+  // Serial.println(Command); //DEBUG: display what you sent as the command
+  for(int i=0; i<3; i++){
+    Serial.print(Command[i]);
+  }
   if(newCommand){
     LoRa.beginPacket(); //start transmission
-    LoRa.print(Command); //just gonna send it, asuhh dudes
+    for(int i=0; i<3; i++){
+      LoRa.print(Command[i]); //just gonna send it, asuhh dudes
+    }
     LoRa.endPacket(); //end transmission
   }
 }
